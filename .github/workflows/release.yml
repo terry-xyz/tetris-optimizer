@@ -94,6 +94,11 @@ jobs:
             fi
           done
 
+      - name: Clean up temporary files
+        run: |
+          rm -f package.json package-lock.json .versionrc
+          git reset HEAD -- package.json package-lock.json .versionrc 2>/dev/null || true
+
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
         with:
