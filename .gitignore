@@ -19,6 +19,7 @@ go.work.sum
 
 # Dependency directories
 vendor/
+node_modules/
 
 # IDE
 .idea/
@@ -37,3 +38,12 @@ __debug_bin*
 # Local environment
 .env
 .env.local
+
+CLAUDE.md
+SPEC.md
+good-practices.md
+audit/audit.md
+audit/
+docs/CODEBASE_MAP.md
+docs/
+.claude/
