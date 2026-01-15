@@ -8,8 +8,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [3.0.0](https://github.com/terry-xyz/tetris-optimizer/compare/v0.0.1...v3.0.0) (2026-01-15)
 
 
-### ⚠ BREAKING CHANGES
-
 * add CLI entry point with signal handling
 
 ### Added
