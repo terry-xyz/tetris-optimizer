@@ -27,7 +27,11 @@ jobs:
       - name: Get current version from latest tag
         id: current
         run: |
-          VERSION=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.0.0")
+          if git describe --tags --abbrev=0 >/dev/null 2>&1; then
+            VERSION=$(git describe --tags --abbrev=0 | sed 's/^v//')
+          else
+            VERSION="0.0.0"
+          fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Create release config
