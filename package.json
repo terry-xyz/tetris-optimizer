@@ -1,8 +1,0 @@
-{
-  "name": "tetris-optimizer",
-  "version": "1.0.0",
-  "private": true,
-  "devDependencies": {
-    "standard-version": "^9.5.0"
-  }
-}

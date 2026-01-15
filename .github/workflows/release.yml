@@ -12,7 +12,6 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    # Don't run on release commits
     if: "!startsWith(github.event.head_commit.message, 'chore(release):')"
     steps:
       - uses: actions/checkout@v4
@@ -23,8 +22,42 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install dependencies
-        run: npm install
+      - name: Create release config
+        run: |
+          cat > package.json << 'EOF'
+          {
+            "name": "tetris-optimizer",
+            "version": "2.0.0",
+            "private": true,
+            "devDependencies": {
+              "standard-version": "^9.5.0"
+            }
+          }
+          EOF
+          cat > .versionrc << 'EOF'
+          {
+            "header": "# Changelog\n\nAll notable changes to this project will be documented in this file.\n\nThe format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),\nand this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).\n",
+            "types": [
+              {"type": "feat", "section": "Added"},
+              {"type": "fix", "section": "Fixed"},
+              {"type": "perf", "section": "Changed"},
+              {"type": "revert", "section": "Changed"},
+              {"type": "docs", "section": "Documentation"},
+              {"type": "build", "section": "Other"},
+              {"type": "ci", "section": "Other"},
+              {"type": "refactor", "section": "Other"},
+              {"type": "style", "hidden": true},
+              {"type": "test", "hidden": true},
+              {"type": "chore", "hidden": true}
+            ],
+            "commitUrlFormat": "{{host}}/{{owner}}/{{repository}}/commit/{{hash}}",
+            "compareUrlFormat": "{{host}}/{{owner}}/{{repository}}/compare/{{previousTag}}...{{currentTag}}",
+            "issueUrlFormat": "{{host}}/{{owner}}/{{repository}}/issues/{{id}}",
+            "releaseCommitMessageFormat": "chore(release): {{currentTag}}",
+            "issuePrefixes": ["#"]
+          }
+          EOF
+          npm install
 
       - name: Configure git
         run: |
@@ -35,6 +68,8 @@ jobs:
         id: version
         run: |
           npx standard-version
+          # Remove breaking changes section
+          sed -i '/### ⚠ BREAKING CHANGES/,/^$/d' CHANGELOG.md
           echo "tag=$(git describe --tags --abbrev=0)" >> $GITHUB_OUTPUT
 
       - name: Create Pull Request
@@ -54,7 +89,6 @@ jobs:
 
   create-release:
     runs-on: ubuntu-latest
-    # Only run on release commits (after PR merge)
     if: "startsWith(github.event.head_commit.message, 'chore(release):')"
     steps:
       - uses: actions/checkout@v4

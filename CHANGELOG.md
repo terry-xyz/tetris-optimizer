@@ -5,12 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
 ## [2.0.0](https://github.com/terry-xyz/tetris-optimizer/compare/v0.0.1...v2.0.0) (2026-01-15)
-
-
-### ⚠ BREAKING CHANGES
-
-* add CLI entry point with signal handling
 
 ### Added
 
@@ -21,7 +18,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **tetromino:** add 19 canonical shape definitions ([deb4b0a](https://github.com/terry-xyz/tetris-optimizer/commit/deb4b0ab262cac2e73a921923f63254f099802df))
 * **timer:** add progress display and profiling ([fa6c1dd](https://github.com/terry-xyz/tetris-optimizer/commit/fa6c1dd51adb3ff5fc5cac697306cfce21d8dd45))
 
-
 ### Other
 
 * add GitHub release workflow ([72f6f58](https://github.com/terry-xyz/tetris-optimizer/commit/72f6f58d5907c8965ed8b3421d1875b678d73bfe))
@@ -29,21 +25,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * replace release-please with standard-version automation ([a86b821](https://github.com/terry-xyz/tetris-optimizer/commit/a86b821c0d6e841c0ae7b18b264aea03a9bb0d3f))
 * replace standard-version with release-please ([64b7e39](https://github.com/terry-xyz/tetris-optimizer/commit/64b7e39f23cfc8d1c4524d6cac73befe9d9333a6))
 
-## [1.0.0] - 2026-01-16
-
-### Added
-
-- CLI entry point with signal handling and 5-minute timeout
-- Progress bar display with TTY detection
-- Backtracking solver algorithm for optimal grid placement
-- Input file parser with validation for 1-26 tetrominoes
-- 2D board representation with placement and collision detection
-- 19 canonical tetromino shape definitions
-
-### Other
-
-- CI workflow with tests and linting
-- Automated release workflow with changelog generation
-
-[Unreleased]: https://github.com/terry-xyz/tetris-optimizer/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/terry-xyz/tetris-optimizer/releases/tag/v1.0.0
+[Unreleased]: https://github.com/terry-xyz/tetris-optimizer/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/terry-xyz/tetris-optimizer/releases/tag/v2.0.0

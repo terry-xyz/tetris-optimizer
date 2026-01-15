@@ -47,3 +47,6 @@ audit/
 docs/CODEBASE_MAP.md
 docs/
 .claude/
+.versionrc
+package-lock.json
+package.json
