@@ -102,12 +102,33 @@ jobs:
       - name: Run standard-version
         id: version
         run: |
-          # Skip commit and tag - let create-pull-request handle it
+          CURRENT_VERSION="${{ steps.current.outputs.version }}"
+
+          # Determine bump type from commits since last tag
           if [ "${{ steps.current.outputs.first_release }}" = "true" ]; then
+            # First release
             npx standard-version --first-release --skip.commit --skip.tag
           else
-            npx standard-version --skip.commit --skip.tag
+            # Check commits since last tag for bump type
+            LAST_TAG="v$CURRENT_VERSION"
+            echo "DEBUG: Checking commits since $LAST_TAG"
+
+            # Check for breaking changes (feat!: or fix!: or BREAKING CHANGE)
+            if git log "$LAST_TAG"..HEAD --oneline | grep -qE '^[a-f0-9]+ \w+(\(.+\))?!:|BREAKING CHANGE'; then
+              echo "DEBUG: Found breaking change - major bump"
+              npx standard-version --release-as major --skip.commit --skip.tag
+            elif git log "$LAST_TAG"..HEAD --oneline | grep -qE '^[a-f0-9]+ feat(\(.+\))?:'; then
+              echo "DEBUG: Found feature - minor bump"
+              npx standard-version --release-as minor --skip.commit --skip.tag
+            elif git log "$LAST_TAG"..HEAD --oneline | grep -qE '^[a-f0-9]+ fix(\(.+\))?:'; then
+              echo "DEBUG: Found fix - patch bump"
+              npx standard-version --release-as patch --skip.commit --skip.tag
+            else
+              echo "DEBUG: No bumpable commits found, defaulting to patch"
+              npx standard-version --release-as patch --skip.commit --skip.tag
+            fi
           fi
+
           # Remove breaking changes section
           sed -i '/### ⚠ BREAKING CHANGES/,/^$/d' CHANGELOG.md
           # Get version from package.json (standard-version updates it)
