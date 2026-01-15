@@ -29,7 +29,10 @@ jobs:
         run: |
           # Fetch all tags from remote (including orphaned ones after force push)
           git fetch --tags --force
-          LATEST_TAG=$(git tag -l 'v*' --sort=-v:refname | head -1)
+          # Use sort -V for proper version sorting
+          LATEST_TAG=$(git tag -l 'v*' | sort -V | tail -1)
+          echo "DEBUG: Found tags: $(git tag -l 'v*' | tr '\n' ' ')"
+          echo "DEBUG: Latest tag: $LATEST_TAG"
           if [ -n "$LATEST_TAG" ]; then
             VERSION=$(echo "$LATEST_TAG" | sed 's/^v//')
             echo "first_release=false" >> $GITHUB_OUTPUT
@@ -38,6 +41,7 @@ jobs:
             echo "first_release=true" >> $GITHUB_OUTPUT
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "DEBUG: Version set to: $VERSION, first_release: $([ -n "$LATEST_TAG" ] && echo false || echo true)"
 
       - name: Create release config
         run: |
