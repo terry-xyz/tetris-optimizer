@@ -1,16 +1,148 @@
-name: Create Release
+name: Release
+
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   release:
     runs-on: ubuntu-latest
+    if: |
+      !startsWith(github.event.head_commit.message, 'chore(release):') &&
+      !contains(github.event.head_commit.message, 'release/v')
     steps:
       - uses: actions/checkout@v4
-      - name: Create Release
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Get current version from latest tag
+        id: current
+        run: |
+          VERSION=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.0.0")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create release config
+        run: |
+          cat > package.json << EOF
+          {
+            "name": "tetris-optimizer",
+            "version": "${{ steps.current.outputs.version }}",
+            "private": true,
+            "devDependencies": {
+              "standard-version": "^9.5.0"
+            }
+          }
+          EOF
+          cat > .versionrc << 'EOF'
+          {
+            "header": "# Changelog\n\nAll notable changes to this project will be documented in this file.\n\nThe format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),\nand this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).\n",
+            "types": [
+              {"type": "feat", "section": "Added"},
+              {"type": "fix", "section": "Fixed"},
+              {"type": "perf", "section": "Changed"},
+              {"type": "revert", "section": "Changed"},
+              {"type": "docs", "section": "Documentation"},
+              {"type": "build", "section": "Other"},
+              {"type": "ci", "section": "Other"},
+              {"type": "refactor", "section": "Other"},
+              {"type": "style", "hidden": true},
+              {"type": "test", "hidden": true},
+              {"type": "chore", "hidden": true}
+            ],
+            "commitUrlFormat": "{{host}}/{{owner}}/{{repository}}/commit/{{hash}}",
+            "compareUrlFormat": "{{host}}/{{owner}}/{{repository}}/compare/{{previousTag}}...{{currentTag}}",
+            "issueUrlFormat": "{{host}}/{{owner}}/{{repository}}/issues/{{id}}",
+            "releaseCommitMessageFormat": "chore(release): {{currentTag}}",
+            "issuePrefixes": ["#"]
+          }
+          EOF
+          npm install
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Run standard-version
+        id: version
+        run: |
+          npx standard-version --first-release
+          # Remove breaking changes section
+          sed -i '/### ⚠ BREAKING CHANGES/,/^$/d' CHANGELOG.md
+          echo "tag=$(git describe --tags --abbrev=0)" >> $GITHUB_OUTPUT
+
+      - name: Replace commit hashes with numbers
+        run: |
+          # Extract all commit hashes from CHANGELOG and replace with commit numbers
+          grep -oP '\([a-f0-9]{7}\)' CHANGELOG.md | tr -d '()' | sort -u | while read hash; do
+            if git cat-file -e "$hash" 2>/dev/null; then
+              num=$(git rev-list --count "$hash")
+              sed -i "s/(\[$hash\]/([#$num]/g" CHANGELOG.md
+            fi
+          done
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: release/${{ steps.version.outputs.tag }}
+          title: "chore(release): ${{ steps.version.outputs.tag }}"
+          body: |
+            ## Release ${{ steps.version.outputs.tag }}
+
+            This PR was automatically created by the release workflow.
+
+            Merge this PR to create the release.
+          commit-message: "chore(release): ${{ steps.version.outputs.tag }}"
+          delete-branch: true
+
+  create-release:
+    runs-on: ubuntu-latest
+    if: |
+      startsWith(github.event.head_commit.message, 'chore(release):') ||
+      contains(github.event.head_commit.message, 'release/v')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from commit
+        id: version
+        run: |
+          MSG="${{ github.event.head_commit.message }}"
+          # Try to extract version from chore(release): vX.Y.Z or from release/vX.Y.Z
+          VERSION=$(echo "$MSG" | grep -oP 'v\d+\.\d+\.\d+' | head -1)
+          if [ -z "$VERSION" ]; then
+            echo "No version found in commit message"
+            exit 1
+          fi
+          echo "tag=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create and push tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if ! git tag -l | grep -q "^${{ steps.version.outputs.tag }}$"; then
+            git tag ${{ steps.version.outputs.tag }}
+            git push origin ${{ steps.version.outputs.tag }}
+          else
+            echo "Tag already exists"
+          fi
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          generate_release_notes: false
           body_path: CHANGELOG.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
