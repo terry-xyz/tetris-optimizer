@@ -27,7 +27,12 @@ jobs:
       - name: Get current version from latest tag
         id: current
         run: |
-          VERSION=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.0.0")
+          if git describe --tags --abbrev=0 >/dev/null 2>&1; then
+            VERSION=$(git describe --tags --abbrev=0 | sed 's/^v//')
+          else
+            # First release - start at 0.0.1
+            VERSION="0.0.1"
+          fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Create release config
@@ -75,20 +80,33 @@ jobs:
       - name: Run standard-version
         id: version
         run: |
-          npx standard-version --first-release
+          # Skip commit and tag - let create-pull-request handle it
+          if git describe --tags --abbrev=0 >/dev/null 2>&1; then
+            npx standard-version --skip.commit --skip.tag
+          else
+            npx standard-version --first-release --skip.commit --skip.tag
+          fi
           # Remove breaking changes section
           sed -i '/### ⚠ BREAKING CHANGES/,/^$/d' CHANGELOG.md
-          echo "tag=$(git describe --tags --abbrev=0)" >> $GITHUB_OUTPUT
+          # Get version from package.json (standard-version updates it)
+          VERSION=$(node -p "require('./package.json').version")
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
 
       - name: Replace commit hashes with numbers
         run: |
           # Extract all commit hashes from CHANGELOG and replace with commit numbers
-          grep -oP '\([a-f0-9]{7}\)' CHANGELOG.md | tr -d '()' | sort -u | while read hash; do
+          # Format is: ([hash](url)) - extract hash from square brackets
+          grep -oP '\[[a-f0-9]{7}\]' CHANGELOG.md | tr -d '[]' | sort -u | while read hash; do
             if git cat-file -e "$hash" 2>/dev/null; then
               num=$(git rev-list --count "$hash")
-              sed -i "s/(\[$hash\]/([#$num]/g" CHANGELOG.md
+              sed -i "s/\[$hash\]/[#$num]/g" CHANGELOG.md
             fi
           done
+
+      - name: Clean up temporary files
+        run: |
+          rm -rf package.json package-lock.json .versionrc node_modules/
+          git reset HEAD -- package.json package-lock.json .versionrc node_modules/ 2>/dev/null || true
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
