@@ -37,3 +37,15 @@ __debug_bin*
 # Local environment
 .env
 .env.local
+
+SPEC.md
+CLAUDE.md
+good-practices.md
+audit/audit.md
+audit/
+docs/CODEBASE_MAP.md
+docs/
+.claude/
+.versionrc
+package-lock.json
+package.json
