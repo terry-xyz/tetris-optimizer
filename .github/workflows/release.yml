@@ -30,7 +30,8 @@ jobs:
           if git describe --tags --abbrev=0 >/dev/null 2>&1; then
             VERSION=$(git describe --tags --abbrev=0 | sed 's/^v//')
           else
-            VERSION="0.0.0"
+            # First release - start at 1.0.0
+            VERSION="1.0.0"
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
@@ -79,10 +80,17 @@ jobs:
       - name: Run standard-version
         id: version
         run: |
-          npx standard-version --first-release
+          # Skip commit and tag - let create-pull-request handle it
+          if git describe --tags --abbrev=0 >/dev/null 2>&1; then
+            npx standard-version --skip.commit --skip.tag
+          else
+            npx standard-version --first-release --skip.commit --skip.tag
+          fi
           # Remove breaking changes section
           sed -i '/### ⚠ BREAKING CHANGES/,/^$/d' CHANGELOG.md
-          echo "tag=$(git describe --tags --abbrev=0)" >> $GITHUB_OUTPUT
+          # Get version from package.json (standard-version updates it)
+          VERSION=$(node -p "require('./package.json').version")
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
 
       - name: Replace commit hashes with numbers
         run: |
