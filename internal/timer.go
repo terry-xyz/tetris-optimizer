@@ -16,29 +16,25 @@ const (
 
 // Timer tracks elapsed time and provides progress display.
 type Timer struct {
-	start     time.Time
-	isTTY     bool
-	showTime  bool
-	durations map[string]time.Duration
+	start time.Time // When timer was created
+	isTTY bool      // Whether stderr is a terminal
 }
 
 // NewTimer creates a new Timer instance.
-func NewTimer(showTime bool) *Timer {
+func NewTimer() *Timer {
 	return &Timer{
-		start:     time.Now(),
-		isTTY:     isTTY(),
-		showTime:  showTime,
-		durations: make(map[string]time.Duration),
+		start: time.Now(), // Record start time
+		isTTY: isTTY(),    // Detect terminal
 	}
 }
 
 // isTTY checks if stderr is a terminal.
 func isTTY() bool {
-	fi, err := os.Stderr.Stat()
+	fi, err := os.Stderr.Stat() // Get stderr file info
 	if err != nil {
 		return false
 	}
-	return (fi.Mode() & os.ModeCharDevice) != 0
+	return (fi.Mode() & os.ModeCharDevice) != 0 // ModeCharDevice indicates a terminal device
 }
 
 // IsTTY returns whether stderr is a TTY.
@@ -48,13 +44,13 @@ func (t *Timer) IsTTY() bool {
 
 // Elapsed returns time since timer started.
 func (t *Timer) Elapsed() time.Duration {
-	return time.Since(t.start)
+	return time.Since(t.start) // Calculate elapsed time
 }
 
 // Remaining returns time remaining until timeout.
 func (t *Timer) Remaining() time.Duration {
-	remaining := Timeout - t.Elapsed()
-	if remaining < 0 {
+	remaining := Timeout - t.Elapsed() // Calculate time left
+	if remaining < 0 {                 // Clamp to zero
 		return 0
 	}
 	return remaining
@@ -62,84 +58,55 @@ func (t *Timer) Remaining() time.Duration {
 
 // IsTimedOut checks if the timeout has been exceeded.
 func (t *Timer) IsTimedOut() bool {
-	return t.Elapsed() >= Timeout
+	return t.Elapsed() >= Timeout // Compare elapsed to timeout
 }
 
-// Track records time for an operation.
-func (t *Timer) Track(name string, start time.Time) {
-	t.durations[name] = t.durations[name] + time.Since(start)
-}
-
-// AddDuration adds duration to an operation.
-func (t *Timer) AddDuration(name string, d time.Duration) {
-	t.durations[name] = t.durations[name] + d
-}
+// AddDuration is a no-op kept for compatibility.
+func (t *Timer) AddDuration(name string, d time.Duration) {}
 
 // ShowProgress displays the progress bar if TTY is available.
 func (t *Timer) ShowProgress() {
-	if !t.isTTY {
+	if !t.isTTY { // Skip if not a terminal
 		return
 	}
 
-	remaining := t.Remaining()
-	minutes := int(remaining.Minutes())
-	seconds := int(remaining.Seconds()) % 60
+	remaining := t.Remaining()               // Get time remaining
+	minutes := int(remaining.Minutes())      // Extract minutes
+	seconds := int(remaining.Seconds()) % 60 // Extract seconds component
 
-	// Calculate progress percentage
-	elapsed := t.Elapsed()
-	progress := float64(elapsed) / float64(Timeout)
-	if progress > 1.0 {
+	elapsed := t.Elapsed()                          // Get elapsed time
+	progress := float64(elapsed) / float64(Timeout) // Calculate progress ratio
+	if progress > 1.0 {                             // Clamp to 1.0
 		progress = 1.0
 	}
 
-	filled := int(progress * ProgressWidth)
-	empty := ProgressWidth - filled
+	filled := int(progress * ProgressWidth) // Calculate filled bar width
+	empty := ProgressWidth - filled         // Calculate empty bar width
 
-	bar := ""
-	for i := 0; i < filled; i++ {
+	bar := ""                     // Build progress bar string
+	for i := 0; i < filled; i++ { // Add filled characters
 		bar += "█"
 	}
-	for i := 0; i < empty; i++ {
+	for i := 0; i < empty; i++ { // Add empty characters
 		bar += "░"
 	}
 
-	fmt.Fprintf(os.Stderr, "\rTime remaining: %02d:%02d [%s]", minutes, seconds, bar)
+	fmt.Fprintf(os.Stderr, "\rSolving... timeout in: %02d:%02d [%s]", minutes, seconds, bar) // Display progress
 }
 
 // ClearProgress clears the progress line if TTY is available.
 func (t *Timer) ClearProgress() {
-	if !t.isTTY {
+	if !t.isTTY { // Skip if not a terminal
 		return
 	}
-	// Clear the line with spaces and return to beginning
-	fmt.Fprintf(os.Stderr, "\r%*s\r", 50, "")
+	fmt.Fprintf(os.Stderr, "\r%*s\r", 31+ProgressWidth, "") // Overwrite with spaces (31 = prefix length)
 }
 
 // ShowCompletion displays completion message to stderr if TTY.
 func (t *Timer) ShowCompletion(solveTime time.Duration) {
-	if !t.isTTY {
+	if !t.isTTY { // Skip if not a terminal
 		return
 	}
-	totalTime := t.Elapsed()
-	fmt.Fprintf(os.Stderr, "Solved in %.2fs (total: %.2fs)\n",
-		solveTime.Seconds(), totalTime.Seconds())
-}
-
-// ShowTimingBreakdown displays detailed timing if --time flag is set.
-func (t *Timer) ShowTimingBreakdown() {
-	if !t.showTime {
-		return
-	}
-
-	fmt.Fprintln(os.Stderr, "=== Timing Breakdown ===")
-
-	// Show tracked durations in a specific order
-	order := []string{"Parse", "Shape match", "Bounds check", "Collision", "Board copy", "Total solve"}
-	for _, name := range order {
-		if d, ok := t.durations[name]; ok {
-			fmt.Fprintf(os.Stderr, "%-16s %4dms\n", name+":", d.Milliseconds())
-		}
-	}
-
-	fmt.Fprintf(os.Stderr, "%-16s %4dms\n", "Total:", t.Elapsed().Milliseconds())
+	totalTime := t.Elapsed()                                         // Get total elapsed time
+	fmt.Fprintf(os.Stderr, "Solved in %.2fs\n", totalTime.Seconds()) // Display completion message
 }
