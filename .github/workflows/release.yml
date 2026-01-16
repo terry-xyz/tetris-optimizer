@@ -27,13 +27,35 @@ jobs:
       - name: Get current version from latest tag
         id: current
         run: |
-          if git describe --tags --abbrev=0 >/dev/null 2>&1; then
-            VERSION=$(git describe --tags --abbrev=0 | sed 's/^v//')
+          # Fetch all tags from remote (including orphaned ones after force push)
+          git fetch --tags --force
+          # Use sort -V for proper version sorting
+          LATEST_TAG=$(git tag -l 'v*' | sort -V | tail -1)
+          echo "DEBUG: Found tags: $(git tag -l 'v*' | tr '\n' ' ')"
+          echo "DEBUG: Latest tag: $LATEST_TAG"
+
+          # Check if tag is orphaned (not reachable from HEAD)
+          if [ -n "$LATEST_TAG" ]; then
+            if git merge-base --is-ancestor "$LATEST_TAG" HEAD 2>/dev/null; then
+              echo "DEBUG: Tag $LATEST_TAG is reachable from HEAD"
+              VERSION=$(echo "$LATEST_TAG" | sed 's/^v//')
+              echo "first_release=false" >> $GITHUB_OUTPUT
+            else
+              echo "DEBUG: Tag $LATEST_TAG is ORPHANED - deleting and starting fresh"
+              # Delete all orphaned tags
+              for tag in $(git tag -l 'v*'); do
+                git tag -d "$tag" 2>/dev/null || true
+                git push origin --delete "$tag" 2>/dev/null || true
+              done
+              VERSION="0.0.1"
+              echo "first_release=true" >> $GITHUB_OUTPUT
+            fi
           else
-            # First release - start at 0.0.1
             VERSION="0.0.1"
+            echo "first_release=true" >> $GITHUB_OUTPUT
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "DEBUG: Version set to: $VERSION, first_release: ${{ steps.current.outputs.first_release }}"
 
       - name: Create release config
         run: |
@@ -77,20 +99,67 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Determine version bump
+        id: bump
+        run: |
+          CURRENT_VERSION="${{ steps.current.outputs.version }}"
+
+          if [ "${{ steps.current.outputs.first_release }}" = "true" ]; then
+            BUMP="first"
+            NEW_VERSION="0.0.1"
+          else
+            LAST_TAG="v$CURRENT_VERSION"
+            echo "DEBUG: Checking commits since $LAST_TAG"
+
+            # Check for breaking changes (feat!: or fix!: or BREAKING CHANGE)
+            if git log "$LAST_TAG"..HEAD --oneline | grep -qE '^[a-f0-9]+ \w+(\(.+\))?!:|BREAKING CHANGE'; then
+              echo "DEBUG: Found breaking change - major bump"
+              BUMP="major"
+            elif git log "$LAST_TAG"..HEAD --oneline | grep -qE '^[a-f0-9]+ feat(\(.+\))?:'; then
+              echo "DEBUG: Found feature - minor bump"
+              BUMP="minor"
+            elif git log "$LAST_TAG"..HEAD --oneline | grep -qE '^[a-f0-9]+ fix(\(.+\))?:'; then
+              echo "DEBUG: Found fix - patch bump"
+              BUMP="patch"
+            else
+              echo "DEBUG: No bumpable commits found, defaulting to patch"
+              BUMP="patch"
+            fi
+
+            # Calculate new version manually
+            IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
+            case "$BUMP" in
+              major) NEW_VERSION="$((major + 1)).0.0" ;;
+              minor) NEW_VERSION="${major}.$((minor + 1)).0" ;;
+              patch) NEW_VERSION="${major}.${minor}.$((patch + 1))" ;;
+            esac
+          fi
+
+          echo "bump=$BUMP" >> $GITHUB_OUTPUT
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "DEBUG: Bump type: $BUMP, New version: $NEW_VERSION"
+
       - name: Run standard-version
         id: version
         run: |
-          # Skip commit and tag - let create-pull-request handle it
-          if git describe --tags --abbrev=0 >/dev/null 2>&1; then
-            npx standard-version --skip.commit --skip.tag
+          BUMP="${{ steps.bump.outputs.bump }}"
+          NEW_VERSION="${{ steps.bump.outputs.new_version }}"
+
+          echo "DEBUG: Bump type: $BUMP, New version: $NEW_VERSION"
+
+          # Update package.json version manually first
+          node -e "const p=require('./package.json'); p.version='$NEW_VERSION'; require('fs').writeFileSync('package.json', JSON.stringify(p, null, 2))"
+
+          # Run standard-version just for changelog
+          if [ "$BUMP" = "first" ]; then
+            npx standard-version --first-release --skip.commit --skip.tag --skip.bump
           else
-            npx standard-version --first-release --skip.commit --skip.tag
+            npx standard-version --skip.commit --skip.tag --skip.bump
           fi
+
           # Remove breaking changes section
           sed -i '/### ⚠ BREAKING CHANGES/,/^$/d' CHANGELOG.md
-          # Get version from package.json (standard-version updates it)
-          VERSION=$(node -p "require('./package.json').version")
-          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$NEW_VERSION" >> $GITHUB_OUTPUT
 
       - name: Replace commit hashes with numbers
         run: |
