@@ -172,6 +172,45 @@ jobs:
             fi
           done
 
+      - name: Reorder changelog sections
+        run: |
+          # Reorder sections within each version to follow Keep a Changelog order
+          node -e "
+          const fs = require('fs');
+          const content = fs.readFileSync('CHANGELOG.md', 'utf8');
+
+          // Section order per Keep a Changelog
+          const order = ['Added', 'Changed', 'Deprecated', 'Removed', 'Fixed', 'Security', 'Documentation', 'Other'];
+
+          // Split by version headers (## or ###)
+          const parts = content.split(/^(##+ \[?\d+\.\d+\.\d+.*$)/m);
+
+          let result = parts[0]; // Header before first version
+
+          for (let i = 1; i < parts.length; i += 2) {
+            const versionHeader = parts[i];
+            const versionContent = parts[i + 1] || '';
+
+            // Extract sections from this version
+            const sections = {};
+            const sectionRegex = /^### (\w+)\n([\s\S]*?)(?=^### |\$)/gm;
+            let match;
+            while ((match = sectionRegex.exec(versionContent)) !== null) {
+              sections[match[1]] = match[2].trim();
+            }
+
+            // Rebuild in correct order
+            result += versionHeader + '\n\n';
+            for (const section of order) {
+              if (sections[section]) {
+                result += '### ' + section + '\n\n' + sections[section] + '\n\n';
+              }
+            }
+          }
+
+          fs.writeFileSync('CHANGELOG.md', result.trim() + '\n');
+          "
+
       - name: Clean up temporary files
         run: |
           rm -rf package.json package-lock.json .versionrc node_modules/
