@@ -1,0 +1,235 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    if: |
+      !startsWith(github.event.head_commit.message, 'chore(release):') &&
+      !contains(github.event.head_commit.message, 'release/v')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Get current version from latest tag
+        id: current
+        run: |
+          # Fetch all tags from remote (including orphaned ones after force push)
+          git fetch --tags --force
+          # Use sort -V for proper version sorting
+          LATEST_TAG=$(git tag -l 'v*' | sort -V | tail -1)
+          echo "DEBUG: Found tags: $(git tag -l 'v*' | tr '\n' ' ')"
+          echo "DEBUG: Latest tag: $LATEST_TAG"
+
+          # Check if tag is orphaned (not reachable from HEAD)
+          if [ -n "$LATEST_TAG" ]; then
+            if git merge-base --is-ancestor "$LATEST_TAG" HEAD 2>/dev/null; then
+              echo "DEBUG: Tag $LATEST_TAG is reachable from HEAD"
+              VERSION=$(echo "$LATEST_TAG" | sed 's/^v//')
+              echo "first_release=false" >> $GITHUB_OUTPUT
+            else
+              echo "DEBUG: Tag $LATEST_TAG is ORPHANED - deleting and starting fresh"
+              # Delete all orphaned tags
+              for tag in $(git tag -l 'v*'); do
+                git tag -d "$tag" 2>/dev/null || true
+                git push origin --delete "$tag" 2>/dev/null || true
+              done
+              VERSION="0.0.1"
+              echo "first_release=true" >> $GITHUB_OUTPUT
+            fi
+          else
+            VERSION="0.0.1"
+            echo "first_release=true" >> $GITHUB_OUTPUT
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "DEBUG: Version set to: $VERSION, first_release: ${{ steps.current.outputs.first_release }}"
+
+      - name: Create release config
+        run: |
+          cat > package.json << EOF
+          {
+            "name": "tetris-optimizer",
+            "version": "${{ steps.current.outputs.version }}",
+            "private": true,
+            "devDependencies": {
+              "standard-version": "^9.5.0"
+            }
+          }
+          EOF
+          cat > .versionrc << 'EOF'
+          {
+            "header": "# Changelog\n\nAll notable changes to this project will be documented in this file.\n\nThe format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),\nand this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).\n",
+            "types": [
+              {"type": "feat", "section": "Added"},
+              {"type": "fix", "section": "Fixed"},
+              {"type": "perf", "section": "Changed"},
+              {"type": "revert", "section": "Changed"},
+              {"type": "docs", "section": "Documentation"},
+              {"type": "build", "section": "Other"},
+              {"type": "ci", "section": "Other"},
+              {"type": "refactor", "section": "Other"},
+              {"type": "style", "hidden": true},
+              {"type": "test", "hidden": true},
+              {"type": "chore", "hidden": true}
+            ],
+            "commitUrlFormat": "{{host}}/{{owner}}/{{repository}}/commit/{{hash}}",
+            "compareUrlFormat": "{{host}}/{{owner}}/{{repository}}/compare/{{previousTag}}...{{currentTag}}",
+            "issueUrlFormat": "{{host}}/{{owner}}/{{repository}}/issues/{{id}}",
+            "releaseCommitMessageFormat": "chore(release): {{currentTag}}",
+            "issuePrefixes": ["#"]
+          }
+          EOF
+          npm install
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Determine version bump
+        id: bump
+        run: |
+          CURRENT_VERSION="${{ steps.current.outputs.version }}"
+
+          if [ "${{ steps.current.outputs.first_release }}" = "true" ]; then
+            BUMP="first"
+            NEW_VERSION="0.0.1"
+          else
+            LAST_TAG="v$CURRENT_VERSION"
+            echo "DEBUG: Checking commits since $LAST_TAG"
+
+            # Check for breaking changes (feat!: or fix!: or BREAKING CHANGE)
+            if git log "$LAST_TAG"..HEAD --oneline | grep -qE '^[a-f0-9]+ \w+(\(.+\))?!:|BREAKING CHANGE'; then
+              echo "DEBUG: Found breaking change - major bump"
+              BUMP="major"
+            elif git log "$LAST_TAG"..HEAD --oneline | grep -qE '^[a-f0-9]+ feat(\(.+\))?:'; then
+              echo "DEBUG: Found feature - minor bump"
+              BUMP="minor"
+            elif git log "$LAST_TAG"..HEAD --oneline | grep -qE '^[a-f0-9]+ fix(\(.+\))?:'; then
+              echo "DEBUG: Found fix - patch bump"
+              BUMP="patch"
+            else
+              echo "DEBUG: No bumpable commits found, defaulting to patch"
+              BUMP="patch"
+            fi
+
+            # Calculate new version manually
+            IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
+            case "$BUMP" in
+              major) NEW_VERSION="$((major + 1)).0.0" ;;
+              minor) NEW_VERSION="${major}.$((minor + 1)).0" ;;
+              patch) NEW_VERSION="${major}.${minor}.$((patch + 1))" ;;
+            esac
+          fi
+
+          echo "bump=$BUMP" >> $GITHUB_OUTPUT
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "DEBUG: Bump type: $BUMP, New version: $NEW_VERSION"
+
+      - name: Run standard-version
+        id: version
+        run: |
+          BUMP="${{ steps.bump.outputs.bump }}"
+          NEW_VERSION="${{ steps.bump.outputs.new_version }}"
+
+          echo "DEBUG: Bump type: $BUMP, New version: $NEW_VERSION"
+
+          # Update package.json version manually first
+          node -e "const p=require('./package.json'); p.version='$NEW_VERSION'; require('fs').writeFileSync('package.json', JSON.stringify(p, null, 2))"
+
+          # Run standard-version just for changelog
+          if [ "$BUMP" = "first" ]; then
+            npx standard-version --first-release --skip.commit --skip.tag --skip.bump
+          else
+            npx standard-version --skip.commit --skip.tag --skip.bump
+          fi
+
+          # Remove breaking changes section
+          sed -i '/### ⚠ BREAKING CHANGES/,/^$/d' CHANGELOG.md
+          echo "tag=v$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Replace commit hashes with numbers
+        run: |
+          # Extract all commit hashes from CHANGELOG and replace with commit numbers
+          # Format is: ([hash](url)) - extract hash from square brackets
+          grep -oP '\[[a-f0-9]{7}\]' CHANGELOG.md | tr -d '[]' | sort -u | while read hash; do
+            if git cat-file -e "$hash" 2>/dev/null; then
+              num=$(git rev-list --count "$hash")
+              sed -i "s/\[$hash\]/[#$num]/g" CHANGELOG.md
+            fi
+          done
+
+      - name: Clean up temporary files
+        run: |
+          rm -rf package.json package-lock.json .versionrc node_modules/
+          git reset HEAD -- package.json package-lock.json .versionrc node_modules/ 2>/dev/null || true
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: release/${{ steps.version.outputs.tag }}
+          title: "chore(release): ${{ steps.version.outputs.tag }}"
+          body: |
+            ## Release ${{ steps.version.outputs.tag }}
+
+            This PR was automatically created by the release workflow.
+
+            Merge this PR to create the release.
+          commit-message: "chore(release): ${{ steps.version.outputs.tag }}"
+          delete-branch: true
+
+  create-release:
+    runs-on: ubuntu-latest
+    if: |
+      startsWith(github.event.head_commit.message, 'chore(release):') ||
+      contains(github.event.head_commit.message, 'release/v')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from commit
+        id: version
+        run: |
+          MSG="${{ github.event.head_commit.message }}"
+          # Try to extract version from chore(release): vX.Y.Z or from release/vX.Y.Z
+          VERSION=$(echo "$MSG" | grep -oP 'v\d+\.\d+\.\d+' | head -1)
+          if [ -z "$VERSION" ]; then
+            echo "No version found in commit message"
+            exit 1
+          fi
+          echo "tag=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create and push tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if ! git tag -l | grep -q "^${{ steps.version.outputs.tag }}$"; then
+            git tag ${{ steps.version.outputs.tag }}
+            git push origin ${{ steps.version.outputs.tag }}
+          else
+            echo "Tag already exists"
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          generate_release_notes: false
+          body_path: CHANGELOG.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
