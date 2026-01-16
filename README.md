@@ -12,6 +12,8 @@
 
 Assembles tetrominoes into the smallest possible square grid using backtracking. Standard library only.
 
+⭐️ For a quick try, use the [live demo](https://terry-xyz.github.io/tetris-optimizer/)!
+
 ## Quick Start
 
 ```bash
