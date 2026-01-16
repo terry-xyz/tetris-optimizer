@@ -4,6 +4,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/terry-xyz/tetris-optimizer/workflows/CI/badge.svg)](https://github.com/terry-xyz/tetris-optimizer/actions)
 [![Go Report Card](https://goreportcard.com/badge/github.com/terry-xyz/tetris-optimizer)](https://goreportcard.com/report/github.com/terry-xyz/tetris-optimizer)
+[![GitHub release](https://img.shields.io/github/v/release/terry-xyz/tetris-optimizer)](https://github.com/terry-xyz/tetris-optimizer/releases)
+[![Go Reference](https://pkg.go.dev/badge/github.com/terry-xyz/tetris-optimizer.svg)](https://pkg.go.dev/github.com/terry-xyz/tetris-optimizer)
+[![codecov](https://codecov.io/gh/terry-xyz/tetris-optimizer/branch/main/graph/badge.svg)](https://codecov.io/gh/terry-xyz/tetris-optimizer)
 [![Tests](https://img.shields.io/badge/Tests-Passing-green.svg)](#commands)
 [![Makefile](https://img.shields.io/badge/Build-Makefile-orange.svg)](#commands)
 
