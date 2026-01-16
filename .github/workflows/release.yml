@@ -191,12 +191,14 @@ jobs:
             const versionHeader = parts[i];
             const versionContent = parts[i + 1] || '';
 
-            // Extract sections from this version
+            // Extract sections by splitting on section headers
             const sections = {};
-            const sectionRegex = /^### (\w+)\n([\s\S]*?)(?=^### |\$)/gm;
-            let match;
-            while ((match = sectionRegex.exec(versionContent)) !== null) {
-              sections[match[1]] = match[2].trim();
+            const sectionParts = versionContent.split(/^### ([A-Z]\w*)\n/m);
+            // sectionParts: [before, name1, content1, name2, content2, ...]
+            for (let j = 1; j < sectionParts.length; j += 2) {
+              const name = sectionParts[j];
+              const text = (sectionParts[j + 1] || '').trim();
+              if (text) sections[name] = text;
             }
 
             // Rebuild in correct order
