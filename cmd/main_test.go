@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -269,6 +270,10 @@ func buildBinary(t *testing.T) string {
 	}
 	tmpFile.Close()
 	binaryPath := tmpFile.Name()
+	if runtime.GOOS == "windows" {
+		os.Remove(binaryPath)  // Remove placeholder; go build creates .exe
+		binaryPath += ".exe"
+	}
 
 	// Build from current directory (cmd/)
 	cmd := exec.Command("go", "build", "-o", binaryPath, ".")
