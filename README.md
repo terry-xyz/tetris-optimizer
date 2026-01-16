@@ -1,5 +1,12 @@
 # Tetris Optimizer
 
+[![Go](https://img.shields.io/badge/Go-1.25-blue.svg)](https://golang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/terry-xyz/tetris-optimizer/workflows/CI/badge.svg)](https://github.com/terry-xyz/tetris-optimizer/actions)
+[![Go Report Card](https://goreportcard.com/badge/github.com/terry-xyz/tetris-optimizer)](https://goreportcard.com/report/github.com/terry-xyz/tetris-optimizer)
+[![Tests](https://img.shields.io/badge/Tests-Passing-green.svg)](#commands)
+[![Makefile](https://img.shields.io/badge/Build-Makefile-orange.svg)](#commands)
+
 Assembles tetrominoes into the smallest possible square grid using backtracking. Standard library only.
 
 ## Quick Start
