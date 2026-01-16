@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tetris Optimizer - Live Demo</title>
+  <style>
+    :root {
+      --bg-primary: #0d1117;
+      --bg-secondary: #161b22;
+      --bg-tertiary: #21262d;
+      --border: #30363d;
+      --text-primary: #e6edf3;
+      --text-secondary: #8b949e;
+      --accent: #58a6ff;
+      --success: #3fb950;
+      --error: #f85149;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 2rem;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      color: var(--text-secondary);
+      font-size: 1rem;
+    }
+
+    .main-content {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+
+    @media (max-width: 700px) {
+      .main-content {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem;
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .panel-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 280px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-primary);
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      font-size: 14px;
+      padding: 0.75rem;
+      resize: vertical;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    select {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-primary);
+      padding: 0.25rem 0.5rem;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+
+    .btn {
+      background: var(--accent);
+      color: var(--bg-primary);
+      border: none;
+      border-radius: 6px;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 1rem;
+      transition: opacity 0.2s;
+    }
+
+    .btn:hover {
+      opacity: 0.9;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .output-area {
+      min-height: 280px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .board-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-tertiary);
+      border-radius: 4px;
+      padding: 1rem;
+    }
+
+    .board {
+      display: grid;
+      gap: 2px;
+      font-family: monospace;
+      font-size: 1.2rem;
+    }
+
+    .cell {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 3px;
+      font-weight: bold;
+    }
+
+    .cell.empty {
+      background: var(--bg-secondary);
+      color: var(--text-secondary);
+    }
+
+    .status {
+      text-align: center;
+      padding: 1rem;
+      color: var(--text-secondary);
+    }
+
+    .status.error {
+      color: var(--error);
+    }
+
+    .status.success {
+      color: var(--success);
+    }
+
+    .stats {
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 2rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+    }
+
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+
+    /* Piece colors - distinct colors for A-Z */
+    .piece-A { background: #f87171; color: #1a1a1a; }
+    .piece-B { background: #fb923c; color: #1a1a1a; }
+    .piece-C { background: #facc15; color: #1a1a1a; }
+    .piece-D { background: #a3e635; color: #1a1a1a; }
+    .piece-E { background: #4ade80; color: #1a1a1a; }
+    .piece-F { background: #2dd4bf; color: #1a1a1a; }
+    .piece-G { background: #22d3ee; color: #1a1a1a; }
+    .piece-H { background: #60a5fa; color: #1a1a1a; }
+    .piece-I { background: #a78bfa; color: #1a1a1a; }
+    .piece-J { background: #e879f9; color: #1a1a1a; }
+    .piece-K { background: #fb7185; color: #1a1a1a; }
+    .piece-L { background: #f472b6; color: #1a1a1a; }
+    .piece-M { background: #c084fc; color: #1a1a1a; }
+    .piece-N { background: #818cf8; color: #1a1a1a; }
+    .piece-O { background: #38bdf8; color: #1a1a1a; }
+    .piece-P { background: #34d399; color: #1a1a1a; }
+    .piece-Q { background: #a8a29e; color: #1a1a1a; }
+    .piece-R { background: #fbbf24; color: #1a1a1a; }
+    .piece-S { background: #f97316; color: #1a1a1a; }
+    .piece-T { background: #ef4444; color: #1a1a1a; }
+    .piece-U { background: #ec4899; color: #1a1a1a; }
+    .piece-V { background: #8b5cf6; color: #1a1a1a; }
+    .piece-W { background: #6366f1; color: #1a1a1a; }
+    .piece-X { background: #0ea5e9; color: #1a1a1a; }
+    .piece-Y { background: #14b8a6; color: #1a1a1a; }
+    .piece-Z { background: #84cc16; color: #1a1a1a; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Tetris Optimizer</h1>
+      <p class="subtitle">Pack tetrominoes into the smallest square grid</p>
+    </header>
+
+    <div class="main-content">
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Input</span>
+          <select id="examples" onchange="loadExample()">
+            <option value="">-- Examples --</option>
+            <option value="single">Single O-piece</option>
+            <option value="two">Two pieces</option>
+            <option value="four">Four pieces</option>
+            <option value="complex">Complex (6 pieces)</option>
+          </select>
+        </div>
+        <textarea id="input" placeholder="Enter tetrominoes here...
+
+Format: 4x4 grid per piece
+# = filled cell
+. = empty cell
+
+Separate pieces with a blank line
+
+Example:
+##..
+##..
+....
+....
+
+....
+####
+....
+...."></textarea>
+        <button class="btn" id="solveBtn" onclick="solve()">Solve</button>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Output</span>
+        </div>
+        <div class="output-area">
+          <div class="board-container" id="boardContainer">
+            <div class="status" id="status">Enter tetrominoes and click Solve</div>
+          </div>
+          <div class="stats" id="stats" style="display: none;">
+            <span id="sizeInfo"></span>
+            <span id="emptyInfo"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <a href="https://github.com/terry-xyz/tetris-optimizer" target="_blank">View on GitHub</a>
+      &nbsp;&middot;&nbsp;
+      Built with vanilla JS &middot; No dependencies
+    </footer>
+  </div>
+
+  <script>
+    // === 19 Canonical Tetromino Shapes ===
+    const CANONICAL_SHAPES = [
+      // I-piece (2)
+      [[0,0], [0,1], [0,2], [0,3]],
+      [[0,0], [1,0], [2,0], [3,0]],
+      // O-piece (1)
+      [[0,0], [0,1], [1,0], [1,1]],
+      // T-piece (4)
+      [[0,0], [0,1], [0,2], [1,1]],
+      [[0,0], [1,0], [1,1], [2,0]],
+      [[0,1], [1,0], [1,1], [1,2]],
+      [[0,1], [1,0], [1,1], [2,1]],
+      // S-piece (2)
+      [[0,1], [0,2], [1,0], [1,1]],
+      [[0,0], [1,0], [1,1], [2,1]],
+      // Z-piece (2)
+      [[0,0], [0,1], [1,1], [1,2]],
+      [[0,1], [1,0], [1,1], [2,0]],
+      // L-piece (4)
+      [[0,0], [1,0], [2,0], [2,1]],
+      [[0,0], [0,1], [0,2], [1,0]],
+      [[0,0], [0,1], [1,1], [2,1]],
+      [[0,2], [1,0], [1,1], [1,2]],
+      // J-piece (4)
+      [[0,1], [1,1], [2,0], [2,1]],
+      [[0,0], [1,0], [1,1], [1,2]],
+      [[0,0], [0,1], [1,0], [2,0]],
+      [[0,0], [0,1], [0,2], [1,2]]
+    ];
+
+    // === Example Inputs ===
+    const EXAMPLES = {
+      single: `##..
+##..
+....
+....`,
+      two: `##..
+##..
+....
+....
+
+....
+####
+....
+....`,
+      four: `...#
+...#
+...#
+...#
+
+....
+....
+..##
+..##
+
+....
+....
+....
+####
+
+....
+##..
+.#..
+.#..`,
+      complex: `##..
+.##.
+....
+....
+
+.##.
+##..
+....
+....
+
+##..
+##..
+....
+....
+
+....
+####
+....
+....
+
+#...
+###.
+....
+....
+
+....
+###.
+..#.
+....`
+    };
+
+    // === Parser ===
+    function parseInput(text) {
+      const lines = text.replace(/\r/g, '').split('\n');
+
+      // Remove trailing empty lines
+      while (lines.length > 0 && lines[lines.length - 1] === '') {
+        lines.pop();
+      }
+
+      if (lines.length === 0) {
+        throw new Error('Empty input');
+      }
+
+      const pieces = [];
+      let i = 0;
+      let pieceNum = 0;
+
+      while (i < lines.length) {
+        pieceNum++;
+
+        if (pieceNum > 26) {
+          throw new Error('Too many pieces (max 26)');
+        }
+
+        if (i + 4 > lines.length) {
+          throw new Error(`Piece ${pieceNum}: incomplete (need 4 lines)`);
+        }
+
+        const pieceLines = lines.slice(i, i + 4);
+        i += 4;
+
+        // Validate lines
+        for (let j = 0; j < 4; j++) {
+          if (pieceLines[j].length !== 4) {
+            throw new Error(`Piece ${pieceNum}, line ${j + 1}: expected 4 chars, got ${pieceLines[j].length}`);
+          }
+          for (const ch of pieceLines[j]) {
+            if (ch !== '#' && ch !== '.') {
+              throw new Error(`Piece ${pieceNum}: invalid character '${ch}'`);
+            }
+          }
+        }
+
+        // Extract coordinates
+        const coords = [];
+        for (let r = 0; r < 4; r++) {
+          for (let c = 0; c < 4; c++) {
+            if (pieceLines[r][c] === '#') {
+              coords.push([r, c]);
+            }
+          }
+        }
+
+        if (coords.length !== 4) {
+          throw new Error(`Piece ${pieceNum}: has ${coords.length} cells (expected 4)`);
+        }
+
+        const normalized = normalize(coords);
+        if (!matchShape(normalized)) {
+          throw new Error(`Piece ${pieceNum}: invalid tetromino shape`);
+        }
+
+        pieces.push({
+          label: String.fromCharCode(65 + pieceNum - 1), // A, B, C...
+          coords: normalized
+        });
+
+        // Check separator
+        if (i < lines.length) {
+          if (lines[i] !== '') {
+            throw new Error(`Missing blank line after piece ${pieceNum}`);
+          }
+          i++;
+          if (i < lines.length && lines[i] === '') {
+            throw new Error('Consecutive blank lines not allowed');
+          }
+        }
+      }
+
+      if (pieces.length === 0) {
+        throw new Error('No tetrominoes found');
+      }
+
+      return pieces;
+    }
+
+    function normalize(coords) {
+      if (coords.length === 0) return coords;
+
+      let minRow = coords[0][0], minCol = coords[0][1];
+      for (const [r, c] of coords) {
+        if (r < minRow) minRow = r;
+        if (c < minCol) minCol = c;
+      }
+
+      const normalized = coords.map(([r, c]) => [r - minRow, c - minCol]);
+
+      // Sort by row, then column
+      normalized.sort((a, b) => a[0] !== b[0] ? a[0] - b[0] : a[1] - b[1]);
+
+      return normalized;
+    }
+
+    function matchShape(coords) {
+      if (coords.length !== 4) return false;
+
+      for (const shape of CANONICAL_SHAPES) {
+        if (pointsEqual(coords, shape)) return true;
+      }
+      return false;
+    }
+
+    function pointsEqual(a, b) {
+      if (a.length !== b.length) return false;
+      for (let i = 0; i < a.length; i++) {
+        if (a[i][0] !== b[i][0] || a[i][1] !== b[i][1]) return false;
+      }
+      return true;
+    }
+
+    // === Board ===
+    function createBoard(size) {
+      const grid = [];
+      for (let i = 0; i < size; i++) {
+        grid.push(new Array(size).fill('.'));
+      }
+      return { grid, size };
+    }
+
+    function copyBoard(board) {
+      return {
+        grid: board.grid.map(row => [...row]),
+        size: board.size
+      };
+    }
+
+    function canPlace(board, piece, row, col) {
+      for (const [r, c] of piece.coords) {
+        const newR = row + r, newC = col + c;
+        if (newR < 0 || newR >= board.size || newC < 0 || newC >= board.size) {
+          return false;
+        }
+      }
+      for (const [r, c] of piece.coords) {
+        if (board.grid[row + r][col + c] !== '.') {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    function place(board, piece, row, col) {
+      for (const [r, c] of piece.coords) {
+        board.grid[row + r][col + c] = piece.label;
+      }
+    }
+
+    // === Solver ===
+    function solvePuzzle(pieces, maxTime = 5000) {
+      if (pieces.length === 0) {
+        return { board: createBoard(0), timeout: false };
+      }
+
+      const minSize = Math.ceil(Math.sqrt(4 * pieces.length));
+      const startTime = Date.now();
+
+      for (let size = minSize; size <= 20; size++) {
+        if (Date.now() - startTime > maxTime) {
+          return { board: null, timeout: true };
+        }
+
+        const board = createBoard(size);
+        if (solveRecursive(board, pieces, 0, startTime, maxTime)) {
+          return { board, timeout: false };
+        }
+      }
+
+      return { board: null, timeout: true };
+    }
+
+    function solveRecursive(board, pieces, idx, startTime, maxTime) {
+      if (Date.now() - startTime > maxTime) {
+        return false;
+      }
+
+      if (idx >= pieces.length) {
+        return true;
+      }
+
+      const piece = pieces[idx];
+
+      for (let row = 0; row < board.size; row++) {
+        for (let col = 0; col < board.size; col++) {
+          if (canPlace(board, piece, row, col)) {
+            const newBoard = copyBoard(board);
+            place(newBoard, piece, row, col);
+
+            if (solveRecursive(newBoard, pieces, idx + 1, startTime, maxTime)) {
+              board.grid = newBoard.grid;
+              return true;
+            }
+          }
+        }
+      }
+
+      return false;
+    }
+
+    // === UI ===
+    function loadExample() {
+      const select = document.getElementById('examples');
+      const key = select.value;
+      if (key && EXAMPLES[key]) {
+        document.getElementById('input').value = EXAMPLES[key];
+      }
+      select.value = '';
+    }
+
+    function solve() {
+      const input = document.getElementById('input').value;
+      const container = document.getElementById('boardContainer');
+      const status = document.getElementById('status');
+      const stats = document.getElementById('stats');
+      const btn = document.getElementById('solveBtn');
+
+      btn.disabled = true;
+      btn.textContent = 'Solving...';
+      container.innerHTML = '<div class="status">Solving...</div>';
+      stats.style.display = 'none';
+
+      // Use setTimeout to allow UI to update
+      setTimeout(() => {
+        try {
+          const pieces = parseInput(input);
+          const result = solvePuzzle(pieces);
+
+          if (result.timeout) {
+            container.innerHTML = '<div class="status error">TIMEOUT - try fewer pieces</div>';
+          } else {
+            renderBoard(result.board, container);
+
+            const emptyCount = countEmpty(result.board);
+            document.getElementById('sizeInfo').textContent = `Size: ${result.board.size}x${result.board.size}`;
+            document.getElementById('emptyInfo').textContent = `Empty: ${emptyCount} cell${emptyCount !== 1 ? 's' : ''}`;
+            stats.style.display = 'flex';
+          }
+        } catch (e) {
+          container.innerHTML = `<div class="status error">ERROR: ${e.message}</div>`;
+        }
+
+        btn.disabled = false;
+        btn.textContent = 'Solve';
+      }, 10);
+    }
+
+    function renderBoard(board, container) {
+      if (board.size === 0) {
+        container.innerHTML = '<div class="status success">Empty solution (no pieces)</div>';
+        return;
+      }
+
+      const boardEl = document.createElement('div');
+      boardEl.className = 'board';
+      boardEl.style.gridTemplateColumns = `repeat(${board.size}, 28px)`;
+
+      for (let r = 0; r < board.size; r++) {
+        for (let c = 0; c < board.size; c++) {
+          const cell = document.createElement('div');
+          const value = board.grid[r][c];
+          cell.className = 'cell';
+
+          if (value === '.') {
+            cell.classList.add('empty');
+            cell.textContent = '.';
+          } else {
+            cell.classList.add(`piece-${value}`);
+            cell.textContent = value;
+          }
+
+          boardEl.appendChild(cell);
+        }
+      }
+
+      container.innerHTML = '';
+      container.appendChild(boardEl);
+    }
+
+    function countEmpty(board) {
+      let count = 0;
+      for (const row of board.grid) {
+        for (const cell of row) {
+          if (cell === '.') count++;
+        }
+      }
+      return count;
+    }
+  </script>
+</body>
+</html>
