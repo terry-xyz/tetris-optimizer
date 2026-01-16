@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+### [0.2.1](https://github.com/terry-xyz/tetris-optimizer/compare/v0.2.0...v0.2.1) (2026-01-16)
+
+
+### Fixed
+
+* **ci:** update breaking change regex to match feat!(scope) format ([#17](https://github.com/terry-xyz/tetris-optimizer/commit/e29db5d0d43886aa6141102b98292aa7bfa6b473))
+
 ## [0.2.0](https://github.com/terry-xyz/tetris-optimizer/compare/v0.1.0...v0.2.0) (2026-01-16)
 
 
