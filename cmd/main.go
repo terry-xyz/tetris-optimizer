@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	"tetris-optimizer/internal"
+	"github.com/terry-xyz/tetris-optimizer/internal"
 )
 
 func main() {
