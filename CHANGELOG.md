@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0](https://github.com/terry-xyz/tetris-optimizer/compare/v0.0.1...v1.0.0) (2026-01-16)
+
+
+* test major bump with manual detection
+* test major bump
+
+### Added
+
+* test major bump ([#26](https://github.com/terry-xyz/tetris-optimizer/commit/87bd7de0923fc2606eb91e43635b765db6f6a8e7))
+* test major bump with manual detection ([#31](https://github.com/terry-xyz/tetris-optimizer/commit/ef6fdb1a035a51961a834015dca256f8cfea9427))
+* test with orphan detection ([#30](https://github.com/terry-xyz/tetris-optimizer/commit/017a045b00356e8189aed20130ec4d9fd4e18b5b))
+
 ### 0.0.1 (2026-01-15)
 
 
